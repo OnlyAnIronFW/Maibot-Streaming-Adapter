@@ -1,19 +1,52 @@
-# maibot_bilibili_live_adapter
+# Maibot Streaming Adapter
 
-MaiBot 的 Bilibili 直播适配插件（旧版本，从 MaiBot 主仓 `plugins/` 目录拷贝出来独立维护）。
+> [!WARNING]
+> **这是一个年久失修的毛坯房。**
+> 本插件约 99% 的代码由 AI 生成，作者在自己的环境里跑通过完整流程，但没有精力持续维护和打磨。
+> 它**不是开箱即用的成品**：配置项繁多、外部依赖众多，换个环境大概率需要修修补补。
+> 预期的使用方式就是：**自己借助 AI 辅助阅读代码、排查报错、生成配置**，边跑边修。
+> 如果你想找一个装完就能用的直播插件，这个项目目前不适合你。
 
-一个 **Input-only（仅输入）** 的 Bilibili 直播适配器：从 B 站直播间接收弹幕事件注入 MaiBot 主链路，
-同时将 MaiBot 的回复在本机渲染为「语音 + 绿幕字幕 + Live2D/立绘/音效」等直播表现，但**不把回复写回 B 站**。
+一个 **Input-only（仅输入）** 的 MaiBot Bilibili 直播适配插件：从 B 站直播间接收弹幕注入 MaiBot 主链路，
+再把 MaiBot 的回复在本机渲染成「语音 + 绿幕字幕 + Live2D / 立绘 / 音效板」等直播表现。**不把回复写回 B 站**。
 
 - 插件 ID：`maibot.bilibili-live-adapter`（manifest v2）
 - SDK 要求：`maibot-plugin-sdk>=2.3.0`
-- 宿主要求：MaiBot 主仓环境（依赖 `src.*` 内部模块，见下文）
+- 宿主要求：MaiBot 主仓环境（插件深度依赖宿主内部模块，无法独立 pip 安装运行，见下文）
 
 ---
 
-## 1. 架构总览
+## 效果展示
 
-插件整体呈「两条链路 + 一个编排核心」结构：
+🎥 **[国产Neuro 但是炫压抑夏亚在直播间（Bilibili 演示视频）](https://www.bilibili.com/video/BV1ak9qBoExY/)**
+
+视频为作者实际直播录屏：弹幕实时接入 → MaiBot 生成回复 → 本地 TTS 语音 / 字幕 / Live2D / 音效板协同演出。
+
+## 功能一览
+
+### 直播输入
+
+- **B 站弹幕实时接入**：并行 WebSocket 采集（默认 4 路）、跨源去重、窗口缓冲与弹幕采样，支持礼物 / SC / 上舰事件路由
+- **空闲话题**：弹幕冷场时让 bot 主动找话题接住直播间
+- **多 AI 协同直播**：`livehub` 独立采集服务端 + 语音互斥租约，多个 AI bot 同台直播不抢话
+- **本地麦克风语音输入**（可选）：sherpa-onnx 流式 ASR，主播说话直接进 MaiBot
+
+### 直播表现（本地渲染，不回写 B 站）
+
+- **TTS 语音**：GPT-SoVITS v2 API 合成，本地播放，与 Live2D 口型联动
+- **绿幕字幕 WebUI**：供 OBS 浏览器源抠像叠加，支持中英/中日双语翻译字幕
+- **Live2D 控制**：口型 / 表情 / 动作参数控制（SoulLink、VTube Studio 桥、具身化运行时三种方案）、鼠标跟随、自动眨眼与 wink
+- **立绘表情切换**：LLM 根据回复内容选择立绘姿态与情绪
+- **音效板**：关键词 / LLM 自动选梗触发 + WebUI 手动点按，绿幕视频/GIF 素材支持
+
+### 扩展玩法
+
+- **桌面视觉**：`/vision` 让 bot 定时看主播桌面截图，对游戏画面实时吐槽
+- **视频一起看**：冷场时邀请观众开 B 站视频，离线解析后按时间轴吐槽
+- **RVC 点歌**：网易云 OpenAPI / Audius 检索 → 人声分离 → RVC 换声翻唱 → 重新混音
+- **STS2 游戏实况**：通过 MCP 操控《文明6》并生成实时解说（依赖 STS2-Agent MCP 服务，可选）
+
+## 工作原理
 
 ```
 ┌───────────────────────────── 输入链路（Input-only） ─────────────────────────────┐
@@ -32,144 +65,141 @@ MaiBot 的 Bilibili 直播适配插件（旧版本，从 MaiBot 主仓 `plugins/
 └───────────────────────────────────────────────────────────────────────────────────┘
 
 ┌───────────────────────────── 输出链路（本地表现，不回写 B 站） ────────────────────┐
-│                                                                                   │
-│  MaiBot 回复 ──→ handle_bilibili_gateway（duplex gateway）                        │
-│                        │                                                          │
-│              _deliver_text_reply_serialized（串行化投递 + 打断/等待协调）           │
-│                        ├─→ TTS 合成 → 本地音频播放（sounddevice）                 │
-│                        ├─→ 字幕 WebUI（绿幕抠像，供 OBS 使用）+ 双语翻译          │
-│                        ├─→ Live2D 口型 / 表情 / 动作（SoulLink / VTS / 具身化）    │
-│                        ├─→ 音效板触发（关键词 / LLM 自动选择）                    │
-│                        ├─→ 立绘（tachi-e）表情切换                                │
-│                        └─→ Hub 输出转发（多 AI 直播间的发言协调）                  │
+│  MaiBot 回复 ──→ 串行化投递（支持打断 / 语音租约 / 分段渲染）                       │
+│        ├─→ TTS 合成 → 本地音频播放                                                 │
+│        ├─→ 字幕 WebUI（绿幕抠像）+ 双语翻译                                        │
+│        ├─→ Live2D 口型 / 表情 / 动作                                               │
+│        ├─→ 音效板触发 / 立绘表情切换                                               │
+│        └─→ Hub 输出转发（多 AI 直播间发言协调）                                     │
 └───────────────────────────────────────────────────────────────────────────────────┘
-
-┌───────────────────────────── 编排核心 ─────────────────────────────┐
-│  plugin.py：BilibiliLiveAdapterPlugin                               │
-│  生命周期（on_load / on_unload / on_config_update → _restart_runtime）│
-│  装配 transport / router / planner / live2d / tts / soundboard 等   │
-└─────────────────────────────────────────────────────────────────────┘
 ```
 
-核心设计原则：
+- **输入链路**：高频采集、低频理解；弹幕经去重/筛选/窗口缓冲后批量注入，避免刷屏。
+- **输出链路**：回复投递全程串行化，支持打断、语音租约（多 AI 协调）、分段渲染。
+- **Input-only**：gateway 从不把回复发回 B 站，只驱动本地表现——安全，也不会刷屏直播间。
 
-- **输入链路**：高频采集、低频理解、事件驱动注入；弹幕经去重/筛选/窗口缓冲后批量注入，避免刷屏。
-- **输出链路**：回复投递全程**串行化**（`_run_serialized_delivery`），支持打断、语音租约（Hub 多 AI 协调）、分段渲染。
-- **Input-only**：`handle_bilibili_gateway` 是 duplex 网关但从不把回复发回 B 站，只驱动本地表现。
+## 使用方式
 
----
+> 再说一遍：以下步骤在你的环境里不一定一次跑通。卡住了就把报错和 `config.example.toml` 丢给 AI，
+> 让它帮你定位问题、生成适合你环境的配置——这正是本项目的预期用法。
 
-## 2. 模块清单
+### 1. 前置要求
 
-### 2.1 入口与生命周期
-
-| 模块 | 职责 |
+| 依赖 | 说明 |
 | --- | --- |
-| `plugin.py` | 主插件类 `BilibiliLiveAdapterPlugin`（约 7700 行）：gateway / hooks / 渲染投递编排 / Hub 语音协调 / 音效板 / Live2D 命令 / 视觉命令 / 游戏桥 / RVC 点歌 / 运行时装配与重启 |
-| `__init__.py` | 包入口，容错导出（无宿主环境时可轻量导入） |
-| `_manifest.json` | 插件清单（manifest v2） |
+| MaiBot 主仓环境 | 必需。插件直接引用宿主内部模块（`maibot_sdk`、`src.*`），需在 MaiBot 主仓的插件机制下运行 |
+| Python ≥ 3.12 | 必需（跟随 MaiBot 主环境） |
+| [GPT-SoVITS v2](docs/gpt_sovits_v2_tts.md) | TTS 必需。本地起 API 服务（默认 `http://127.0.0.1:9880`），参考音频自备 |
+| ffmpeg / ffprobe | 视频观看、RVC 点歌功能需要，加入 PATH 或在配置里写绝对路径 |
+| [sherpa-onnx](https://pypi.org/project/sherpa-onnx/) | 可选。本地麦克风语音输入的流式 ASR 运行时 |
+| [VTube Studio](docs/vtube_studio_testing.md) | 可选。想用 VTS 渲染 Live2D 时才需要 |
 
-### 2.2 配置与常量
+### 2. 安装
 
-| 模块 | 职责 |
-| --- | --- |
-| `config.py` | 约 50 个 pydantic 配置模型：`BilibiliConfig` / `IdentityConfig` / `FilterConfig` / `InteractionConfig` / `TopicExtensionConfig` / `NapCatControlConfig` / `HubInputConfig` / `HubOutputConfig` / `Live2D*` 系列（Adaptive/Sync/Override/Debug/Blink/Wink/Embodied/SoulLink/SoulLinkShell）/ `GameConfig` / `VisionConfig` / `VideoWatch*` / `SoundboardConfig` / `TTSConfig` / `STS2Config` / `WebUIConfig` / `LocalVoiceConfig` / `RvcSongRequestConfig` 等 |
-| `constants.py` | 平台常量、B 站协议 op 码、默认 URL、配置版本号 |
-| `runtime_state.py` | 通过 `gateway.update_state` 向宿主上报网关就绪状态 |
-
-### 2.3 Bilibili 输入链路
-
-| 模块 | 职责 |
-| --- | --- |
-| `bilibili_transport.py` | `BilibiliDanmakuTransport`：并行 WebSocket 弹幕传输（默认 4 路）、心跳、历史记录轮询补齐、跨源去重、身份富化 |
-| `bilibili_codec.py` | B 站 WebSocket 包编解码（zlib 解压、op 码分发）与事件规范化 |
-| `event_router.py` | `LiveEventRouter`：事件去重 / 清洗 / 窗口缓冲 / 批量注入网关；空闲话题（idle topic）规划与快照持久化；STS2 / Live2D debug / 付费事件处理 |
-| `interaction_planner.py` | 弹幕采样与优先级选择，决定注入哪些弹幕进 MaiBot |
-| `message_codec.py` | 外部事件 ↔ MaiBot `MessageDict` 转换；直播身份解析（`SessionUtils`） |
-| `hub_input_client.py` | Hub 输入订阅：把共享 hub 事件镜像为直播事件（多 AI 协同直播） |
-
-### 2.4 回复输出链路（本地渲染）
-
-| 模块 | 职责 |
-| --- | --- |
-| `tts_provider.py` | TTS 提供者协议 + GPT-SoVITS 实现（`SynthesizedSpeech`） |
-| `audio_output.py` | 本地 wav 播放（sounddevice 选定输出设备） |
-| `local_voice_controller.py` / `local_voice_input.py` / `local_voice_native_runtime.py` / `local_voice_state.py` | 本地麦克风语音输入（连续采集 + 实时 ASR 后端）与本地回显控制窗口 |
-| `subtitle_webui.py` / `subtitle_native_runtime.py` / `subtitle_native_segments.py` / `subtitle_native_state.py` | 绿幕字幕 WebUI 与原生运行时（供 OBS 抠像叠加） |
-| `translation_client.py` | 字幕双语翻译（OpenAI 客户端） |
-| `sts2_controller.py` / `sts2_llm_client.py` / `sts2_mcp_client.py` / `sts2_logging.py` | STS2 游戏控制器：决策客户端、MCP 工具、日志会话 |
-| `webui/` | 前端静态资源（字幕绿幕 / 音效板 / SoulLink Shell） |
-
-### 2.5 Live2D / 视觉表现
-
-| 模块 | 职责 |
-| --- | --- |
-| `live2d_adaptive/` | 自适应 Live2D 参数控制：`bridge.py`（内存/JSON 桥）、`controller.py`、`embodied.py`（具身化运行时）、`soullink.py`、`capability_probe.py`（能力探测）、`semantic_mapper.py`（语义→参数映射）、`speech_timeline.py`（口型时间线）、`local_lipsync.py`、`mouse_follow.py`、`profile.py` |
-| `live2d_control_state.py` | Live2D 控制状态持久化 |
-| `live2d_shell_protocol.py` / `live2d_shell_runtime.py` / `live2d_shell_window.py` / `live2d_shell_window_process.py` | SoulLink Shell 桌面窗口运行时 |
-| `live2d_soullink_vendor/` | [SoulLink_Live2D](https://github.com/nanlingyin/SoulLink_Live2D) 的 vendored 快照（MIT，见目录内 README/LICENSE） |
-| `tachie_controller.py` / `_tachie_window.py` | LLM 驱动的立绘表情选择与显示 |
-| `soundboard.py` / `soundboard_selection_client.py` | 音效板运行时 + 绿幕 WebUI 服务 + 音效自动选择客户端 |
-
-### 2.6 视觉 / 视频观看
-
-| 模块 | 职责 |
-| --- | --- |
-| `vision_tool.py` | 桌面截图 + 视觉模型总结（`VisionDesktopInspector`） |
-| `video_watch.py` | 空闲时 B 站视频观看、离线分析、定时解说、记忆摄入 |
-
-### 2.7 唱歌（RVC）系统
-
-| 模块 | 职责 |
-| --- | --- |
-| `netease_client.py` / `audius_client.py` / `music_source_provider.py` | 音乐源（网易云 OpenAPI / Audius）与统一提供契约 |
-| `audio_separator_bridge.py` | 人声分离 |
-| `rvc_infer_bridge.py` / `rvc_song_pipeline.py` | RVC 推理桥与歌曲转换管线 |
-| `song_request_service.py` / `song_request_console.py` / `manual_rvc_song_request.py` | 点歌队列、控制台会话、手动 CLI |
-
-### 2.8 基础设施与辅助
-
-| 模块 | 职责 |
-| --- | --- |
-| `bridge_client.py` | 通用 JSON bridge 客户端（游戏 / 显示集成） |
-| `topic_extension_client.py` / `topic_state.py` | 话题扩展与空闲话题持久化 |
-| `tools/` | 辅助脚本：VTube Studio 校准、音效导入、B 站弹幕注入/观看 |
-| `tests/` | pytest 测试集（`_host_bootstrap.py` 负责引导宿主测试环境） |
-| `docs/` | 文档（GPT-SoVITS 接入、VTube Studio 测试、音效板 cue 导入、插件总览） |
-
----
-
-## 3. 宿主环境依赖
-
-插件运行时需要 MaiBot 主仓环境，直接引用以下内部模块（无法通过 pip 安装）：
-
-- `maibot_sdk`（`API` / `HookHandler` / `MaiBotPlugin` / `MessageGateway` / `PluginConfigBase` / `Tool`）
-- `src.config.config.global_config` / `config_manager`
-- `src.config.model_configs`（`APIProvider` / `ModelInfo`）
-- `src.common.utils.utils_session.SessionUtils`
-- `src.A_memorix.host_service.a_memorix_host_service`
-
-`tools/` 下的脚本另依赖 `maim-message`（`==0.6.8`）。
-
-## 4. 配置与运行
-
-1. 复制 `config.example.toml` 为 `config.toml`，按需填写直播间号、模型标识与各服务密钥（示例文件中所有密钥均为空）。`config.toml` 已被 `.gitignore` 排除，不会被提交。
-2. 运行期会自动在插件目录下创建 `data/`（凭据缓存、状态、音效素材）与 `logs/`，两者均不入库。
-3. 本地语音输入（`local_voice`）依赖 [sherpa-onnx](https://pypi.org/project/sherpa-onnx/) 流式 ASR，为可选依赖：
+把本插件放进 MaiBot 主仓的 `plugins/` 目录，然后安装 Python 依赖（优先 uv）：
 
 ```bash
+uv sync
+# 或
+pip install -r requirements.txt
+
+# 如需本地麦克风语音输入，额外安装可选依赖组：
 pip install -e ".[local-voice]"
 ```
 
----
+### 3. 配置
 
-## 5. 开发与测试
+```bash
+cp config.example.toml config.toml
+```
+
+示例文件里**所有密钥均为空、所有个人路径已清空**，需要你按自己的环境填写。配置块很多，
+建议让 AI 辅助你按需生成——最起码要填这些：
+
+| 配置块 | 要填什么 |
+| --- | --- |
+| `[bilibili]` | `room_id` 你的 B 站直播间号 |
+| `[interaction.topic_extension]` 等 LLM 段 | `api_provider` / `model_identifier`：使用 MaiBot 主配置里已有的模型供给 |
+| `[tts]` | `base_url`（GPT-SoVITS API 地址）、`ref_audio_path` / `aux_ref_audio_paths` / 权重路径（参考音频自备） |
+| `[live2d.*]` | 用哪套 Live2D 方案就开哪段，不用的保持 `enabled = false` |
+| `[vision]` / `[video_watch]` / `[sts2]` / `[song_request]` / `[local_voice]` | 各扩展玩法独立开关，不用就不开 |
+
+`config.toml` 已被 `.gitignore` 排除，不会被提交。运行期会在插件目录下自动创建 `data/`（凭据缓存、状态、素材）与 `logs/`。
+
+`livehub`（多 AI 协同采集服务端）是独立组件，配置见 `livehub/config.example.toml`；单 bot 直播可以不用它。
+
+### 4. 运行与验证
+
+启动 MaiBot 后插件自动加载。本机会起几个本地服务：
+
+- 字幕绿幕页：`http://127.0.0.1:18182`（OBS 里添加浏览器源，勾选绿幕抠像）
+- 音效板 WebUI：`http://127.0.0.1:18184`
+- 立绘显示窗：`http://127.0.0.1:18185`
+
+### 5. 弹幕命令（管理员）
+
+下列命令默认只对配置里 `authorized_identities` / `admin_user_ids` 中的用户生效：
+
+| 命令 | 作用 |
+| --- | --- |
+| `/vision` | 开关桌面视觉吐槽 |
+| `/watchvideo` | 开关 B 站视频一起看 |
+| `/soundboard on\|off\|status` | 音效板总开关与状态 |
+| `/sts2start` / `/sts2stop` / `/sts2status` | STS2 游戏实况控制 |
+| `/l2d ...` | Live2D 调试命令（表情 / 动作 / 特殊演出） |
+
+## 模块清单
+
+<details>
+<summary>点开查看代码结构（面向二次开发）</summary>
+
+### 入口与配置
+
+| 模块 | 职责 |
+| --- | --- |
+| `plugin.py` | 主插件类 `BilibiliLiveAdapterPlugin`：生命周期、渲染投递编排、Hub 语音协调、各命令路由、运行时装配 |
+| `config.py` | 约 50 个 pydantic 配置模型，对应 `config.toml` 各配置块 |
+| `constants.py` / `runtime_state.py` | 协议常量、网关状态上报 |
+
+### 输入链路
+
+| 模块 | 职责 |
+| --- | --- |
+| `bilibili_transport.py` / `bilibili_codec.py` | 并行 WebSocket 弹幕传输与 B 站协议编解码 |
+| `event_router.py` | 事件去重 / 清洗 / 窗口缓冲 / 空闲话题规划 |
+| `interaction_planner.py` / `message_codec.py` | 弹幕采样选择、事件 → MaiBot `MessageDict` 转换 |
+| `hub_input_client.py` | Hub 输入订阅（多 AI 协同） |
+
+### 输出链路（本地渲染）
+
+| 模块 | 职责 |
+| --- | --- |
+| `tts_provider.py` / `audio_output.py` | GPT-SoVITS 合成与本地播放 |
+| `subtitle_*.py` / `translation_client.py` | 绿幕字幕 WebUI、原生运行时、双语翻译 |
+| `live2d_adaptive/` / `live2d_shell_*.py` | 自适应 Live2D 参数控制与 SoulLink Shell 桌面窗口 |
+| `live2d_soullink_vendor/` | [SoulLink_Live2D](https://github.com/nanlingyin/SoulLink_Live2D) vendored 快照（MIT，见目录内说明） |
+| `tachie_controller.py` / `_tachie_window.py` | 立绘表情选择与显示 |
+| `soundboard.py` / `soundboard_selection_client.py` | 音效板运行时与自动选梗 |
+
+### 扩展与基础设施
+
+| 模块 | 职责 |
+| --- | --- |
+| `vision_tool.py` / `video_watch.py` | 桌面视觉、B 站视频一起看 |
+| `netease_client.py` / `audius_client.py` / `rvc_*.py` / `song_request_*.py` | RVC 点歌系统 |
+| `sts2_*.py` | STS2 游戏实况控制 |
+| `livehub/` | 多 AI 协同采集服务端（独立进程） |
+| `tools/` | VTube Studio 校准、音效导入（`import_soundboard_cue.bat`）、弹幕注入等辅助脚本 |
+| `tests/` | pytest 测试集 |
+| `docs/` | GPT-SoVITS 接入、VTube Studio 测试、音效 cue 导入等文档 |
+
+</details>
+
+## 开发与测试
 
 ```bash
 # 依赖安装（优先 uv）
 uv sync
-# 或
-pip install -r requirements.txt
 
 # 运行测试（tests/_host_bootstrap.py 会注入宿主核心仓库；默认寻找上一级 MaiBot-r-dev，
 # 也可用环境变量 MAIBOT_CORE_REPO 指定 MaiBot 主仓路径）
@@ -178,17 +208,14 @@ uv run pytest tests/
 
 测试注意：`tests/_host_bootstrap.py` 会向 `sys.path` 注入宿主仓库并生成临时配置文件，属于本插件的宿主引导逻辑。
 
----
-
-## 6. 许可
-
-- 本插件整体遵循 `GPL-3.0-or-later`（见 `_manifest.json`）。
-- `live2d_soullink_vendor/` 内的代码来自 [SoulLink_Live2D](https://github.com/nanlingyin/SoulLink_Live2D)，按其声明的 MIT License 再分发，详见目录内 [LICENSE](live2d_soullink_vendor/LICENSE)。
-- `data/` 中的音效、立绘等素材不在本仓库分发范围内，使用时请自行准备并确认素材授权。
-
 ### 维护约定
 
 - 注释 / 日志 / WebUI 展示语言优先简体中文。
-- import 顺序：标准库与第三方（`from ... import ...` 在前、`import ...` 在后，各自按字母序）→ 本地模块（同目录相对导入，跨目录以 `from src` 绝对导入）。
+- import 顺序：标准库与第三方（`from ... import ...` 在前、`import ...` 在后，各自按字母序）→ 本地模块。
 - 依赖以 `pyproject.toml` 为准，修改后同步更新 `requirements.txt`。
-- 配置文件改动只改模板并递增版本号，不直接改运行配置；`legacy_migration` 禁止改动。
+
+## 许可
+
+- 本插件整体遵循 `GPL-3.0-or-later`（见 `_manifest.json`）。
+- `live2d_soullink_vendor/` 内的代码来自 [SoulLink_Live2D](https://github.com/nanlingyin/SoulLink_Live2D)，按其声明的 MIT License 再分发，详见目录内 [LICENSE](live2d_soullink_vendor/LICENSE)。
+- `data/` 中的音效、立绘、Live2D 模型等素材不在本仓库分发范围内，使用时请自行准备并确认素材授权。
