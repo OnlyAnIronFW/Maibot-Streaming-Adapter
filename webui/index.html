@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MaiBot Subtitle WebUI</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="chromakey-stage" id="stage">
+      <button
+        class="menu-trigger"
+        id="menu-trigger"
+        type="button"
+        aria-label="打开字幕控制菜单"
+        title="双击绿幕或按 M 打开菜单"
+      ></button>
+
+      <aside class="control-drawer" id="control-drawer" aria-hidden="true">
+        <div class="drawer-shell" id="drawer-shell">
+          <header class="drawer-header">
+            <div class="drawer-copy">
+              <div class="drawer-kicker">MaiBot Subtitle Overlay</div>
+              <h1>绿幕字幕控制台</h1>
+              <p class="drawer-note">主画面只保留字幕。双击绿幕、点击右上角热区，或按 M 键打开 / 关闭菜单。</p>
+            </div>
+            <button class="drawer-close" id="close-menu" type="button" aria-label="关闭菜单">×</button>
+          </header>
+
+          <section class="drawer-status-bar" aria-label="连接状态">
+            <div class="surface-status">
+              <span class="status-dot" id="socket-status"></span>
+              <span id="socket-status-text">连接中</span>
+            </div>
+            <div class="reply-meta" id="reply-meta">等待新的 replyer 输出</div>
+          </section>
+
+          <div class="drawer-content">
+            <nav class="menu-tabs" aria-label="设置分类">
+              <button class="menu-tab is-active" type="button" data-panel-target="layout" aria-selected="true">
+                布局
+              </button>
+              <button class="menu-tab" type="button" data-panel-target="type" aria-selected="false">文字</button>
+              <button class="menu-tab" type="button" data-panel-target="background" aria-selected="false">
+                背景
+              </button>
+              <button class="menu-tab" type="button" data-panel-target="system" aria-selected="false">系统</button>
+            </nav>
+
+            <div class="menu-panels">
+              <section class="menu-panel is-active" data-panel-id="layout">
+                <div class="panel-heading">
+                  <div class="panel-kicker">Layout</div>
+                  <h2>字幕位置与尺寸</h2>
+                  <p>只调整字幕层本身，绿幕背景保持纯色，方便直播软件直接做抠像。</p>
+                </div>
+                <div class="field-grid">
+                  <label>
+                    <span>宽度</span>
+                    <input id="box-width" type="number" min="240" max="2000" step="10" />
+                  </label>
+                  <label>
+                    <span>高度</span>
+                    <input id="box-height" type="number" min="96" max="1200" step="10" />
+                  </label>
+                  <label>
+                    <span>左边距</span>
+                    <input id="box-left" type="number" min="0" max="2400" step="4" />
+                  </label>
+                  <label>
+                    <span>下边距</span>
+                    <input id="box-bottom" type="number" min="0" max="1600" step="4" />
+                  </label>
+                </div>
+              </section>
+
+              <section class="menu-panel" data-panel-id="type" hidden>
+                <div class="panel-heading">
+                  <div class="panel-kicker">Type</div>
+                  <h2>字幕字形</h2>
+                  <p>保持大字号和高对比度时，绿幕采集后在直播画面里的可读性会更稳定。</p>
+                </div>
+                <div class="field-grid">
+                  <label class="field-span">
+                    <span>字体</span>
+                    <input id="font-family" type="text" />
+                  </label>
+                  <label>
+                    <span>字号</span>
+                    <input id="font-size" type="number" min="16" max="144" step="1" />
+                  </label>
+                  <label>
+                    <span>字色</span>
+                    <input id="text-color" type="color" />
+                  </label>
+                </div>
+              </section>
+
+              <section class="menu-panel" data-panel-id="background" hidden>
+                <div class="panel-heading">
+                  <div class="panel-kicker">Backdrop</div>
+                  <h2>字幕底板</h2>
+                  <p>默认透明，主画面只显示字幕。需要字幕底板时再把透明度往上调。</p>
+                </div>
+                <div class="field-grid">
+                  <label>
+                    <span>底色</span>
+                    <input id="background-color" type="color" />
+                  </label>
+                  <label class="field-span">
+                    <span class="range-label">
+                      <span>透明度</span>
+                      <output id="background-opacity-value" for="background-opacity">0%</output>
+                    </span>
+                    <input id="background-opacity" type="range" min="0" max="100" step="1" />
+                  </label>
+                </div>
+              </section>
+
+              <section class="menu-panel" data-panel-id="system" hidden>
+                <div class="panel-heading">
+                  <div class="panel-kicker">System</div>
+                  <h2>播放与维护</h2>
+                  <p>音频授权、清空字幕和恢复默认都收进这里，平时不开菜单时不会干扰采集画面。</p>
+                </div>
+                <div class="action-grid">
+                  <button type="button" id="audio-unlock">启用音频</button>
+                  <button type="button" id="clear-subtitles">清空字幕</button>
+                  <button type="button" id="reset-settings">恢复默认</button>
+                </div>
+                <div class="system-note">
+                  <span class="system-note__label">当前输出</span>
+                  <strong>绿幕模式，仅字幕可见</strong>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <section class="subtitle-layer" aria-label="字幕显示区域">
+        <div class="subtitle-box" id="subtitle-box">
+          <div class="subtitle-scroll" id="subtitle-scroll"></div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

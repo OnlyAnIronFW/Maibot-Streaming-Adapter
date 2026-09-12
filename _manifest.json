@@ -1,0 +1,38 @@
+{
+  "manifest_version": 2,
+  "id": "maibot.bilibili-live-adapter",
+  "name": "maibot_bilibili_live_adapter",
+  "version": "0.1.0",
+  "description": "Input-only Bilibili live adapter with adaptive parameter-only Live2D control and game JSON bridge.",
+  "author": {
+    "name": "OnlyAnIronFW",
+    "url": "https://github.com/OnlyAnIronFW"
+  },
+  "license": "GPL-v3.0-or-later",
+  "urls": {
+    "repository": "https://github.com/OnlyAnIronFW/Maibot-Streaming-Adapter",
+    "homepage": "https://github.com/OnlyAnIronFW/Maibot-Streaming-Adapter",
+    "documentation": "https://github.com/OnlyAnIronFW/Maibot-Streaming-Adapter",
+    "issues": "https://github.com/OnlyAnIronFW/Maibot-Streaming-Adapter/issues"
+  },
+  "host_application": {
+    "min_version": "1.0.0",
+    "max_version": "1.99.99"
+  },
+  "sdk": {
+    "min_version": "2.3.0",
+    "max_version": "2.99.99"
+  },
+  "capabilities": [
+    "api.call",
+    "host.route_message",
+    "host.update_message_gateway_state",
+    "llm.generate",
+    "message.count_new"
+  ],
+  "dependencies": [],
+  "i18n": {
+    "default_locale": "zh-CN",
+    "supported_locales": ["zh-CN", "en-US"]
+  }
+}

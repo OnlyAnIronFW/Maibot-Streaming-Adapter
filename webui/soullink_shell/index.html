@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MaiBot SoulLink Shell</title>
+    <link rel="stylesheet" href="./shell.css" />
+  </head>
+  <body>
+    <div id="shell-root" data-shell-mode="avatar-only">
+      <div id="live2d-stage" class="shell-stage">
+        <div id="live2d-container" class="shell-stage__container">
+          <div id="loading" class="shell-loading">
+            <div class="shell-loading__title">SoulLink</div>
+            <div class="shell-loading__text">Loading avatar shell...</div>
+          </div>
+          <canvas id="live2d-canvas" class="shell-canvas"></canvas>
+        </div>
+      </div>
+
+      <button
+        id="shell-menu-button"
+        class="shell-hidden-button"
+        type="button"
+        aria-label="Open shell controls"
+      >
+        menu
+      </button>
+
+      <aside
+        id="shell-side-menu"
+        class="shell-side-menu shell-side-menu--hidden"
+        aria-hidden="true"
+      >
+        <div class="shell-side-menu__header">
+          <strong>Shell Controls</strong>
+          <span id="ws-status" class="shell-status">offline</span>
+        </div>
+        <div class="shell-side-menu__body">
+          <label class="shell-field" for="language-select">
+            <span>Language</span>
+            <select id="language-select">
+              <option value="zh">中文</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+          <div id="system-info" class="shell-system-info"></div>
+          <div id="control-panel" class="shell-control-panel" aria-hidden="true"></div>
+        </div>
+      </aside>
+    </div>
+    <script type="module" src="./shell.js"></script>
+  </body>
+</html>

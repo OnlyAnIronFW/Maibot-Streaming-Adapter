@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>maibot_bilibili_live_adapter 插件运行流程与机制详解</title>
+<style>
+  :root {
+    --bg: #0f1420;
+    --panel: #171e2e;
+    --panel2: #1c2540;
+    --border: #2a3654;
+    --text: #dbe4f5;
+    --muted: #8fa0c0;
+    --accent: #4f8cff;
+    --accent2: #38d0b0;
+    --warn: #ffb454;
+    --danger: #ff6b81;
+    --purple: #b18cff;
+    --mono: "Cascadia Code", Consolas, "Courier New", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    line-height: 1.65; padding-bottom: 80px;
+  }
+  header {
+    background: linear-gradient(135deg, #131b30 0%, #1a2440 60%, #16324a 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 42px 8% 34px;
+  }
+  header h1 { font-size: 1.9em; letter-spacing: 0.5px; }
+  header h1 .en { color: var(--accent); font-family: var(--mono); font-size: 0.8em; }
+  header p.sub { color: var(--muted); margin-top: 10px; max-width: 920px; }
+  header .meta { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .tag {
+    display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 0.8em;
+    border: 1px solid var(--border); background: rgba(79,140,255,.12); color: var(--accent);
+  }
+  .tag.green { color: var(--accent2); background: rgba(56,208,176,.1); }
+  .tag.purple { color: var(--purple); background: rgba(177,140,255,.1); }
+  .tag.warn { color: var(--warn); background: rgba(255,180,84,.1); }
+  nav.toc {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(15,20,32,.92); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border); padding: 10px 8%;
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  nav.toc a {
+    color: var(--muted); text-decoration: none; font-size: 0.85em;
+    padding: 4px 12px; border-radius: 6px; transition: .15s;
+  }
+  nav.toc a:hover { background: var(--panel2); color: var(--accent); }
+  main { padding: 30px 8%; max-width: 1280px; margin: 0 auto; }
+  section { margin-bottom: 56px; }
+  h2 {
+    font-size: 1.45em; margin-bottom: 18px; padding-left: 14px;
+    border-left: 4px solid var(--accent);
+  }
+  h2 .no { color: var(--accent); font-family: var(--mono); margin-right: 8px; }
+  h3 { font-size: 1.12em; margin: 26px 0 12px; color: var(--accent2); }
+  p.desc { color: var(--muted); margin-bottom: 16px; max-width: 980px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px 24px; margin-bottom: 16px;
+  }
+  .card.hl { border-color: rgba(79,140,255,.45); background: linear-gradient(180deg, rgba(79,140,255,.07), var(--panel)); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.92em; }
+  th, td { padding: 9px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  th { color: var(--accent); font-weight: 600; background: rgba(79,140,255,.06); }
+  td code, li code, p code {
+    font-family: var(--mono); font-size: 0.88em; background: rgba(79,140,255,.12);
+    color: #9ec3ff; padding: 1px 7px; border-radius: 5px;
+  }
+  pre {
+    background: #0b101c; border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px 18px; overflow-x: auto; font-family: var(--mono); font-size: 0.86em;
+    line-height: 1.55; margin: 12px 0;
+  }
+  pre .c { color: #5d708f; }
+  pre .k { color: #c792ea; }
+  pre .s { color: #a5e29f; }
+  pre .f { color: #7fb4ff; }
+  pre .n { color: #f78c6c; }
+  .flow { display: flex; flex-direction: column; gap: 0; margin: 18px 0; }
+  .fstep {
+    display: flex; align-items: stretch; gap: 0;
+  }
+  .fstep .idx {
+    flex: 0 0 46px; display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); color: var(--accent); font-weight: 700;
+    background: rgba(79,140,255,.08); border: 1px solid var(--border); border-right: none;
+    border-radius: 10px 0 0 10px;
+  }
+  .fstep .body {
+    flex: 1; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 0 10px 10px 0; padding: 12px 18px;
+  }
+  .fstep .body b { color: var(--accent2); }
+  .fstep .body .d { color: var(--muted); font-size: 0.9em; margin-top: 3px; }
+  .arrow { text-align: center; color: var(--accent); font-size: 1.1em; padding: 2px 0 2px 46px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 960px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+  .badge {
+    display: inline-block; font-size: 0.72em; font-family: var(--mono);
+    padding: 1px 8px; border-radius: 4px; margin-left: 6px; vertical-align: 2px;
+  }
+  .badge.in { background: rgba(56,208,176,.15); color: var(--accent2); }
+  .badge.out { background: rgba(177,140,255,.15); color: var(--purple); }
+  .badge.core { background: rgba(79,140,255,.15); color: var(--accent); }
+  .badge.hub { background: rgba(255,180,84,.15); color: var(--warn); }
+  .badge.fix { background: rgba(255,107,129,.15); color: var(--danger); }
+  .diagram {
+    background: #0b101c; border: 1px solid var(--border); border-radius: 12px;
+    padding: 22px; font-family: var(--mono); font-size: 0.8em; line-height: 1.5;
+    overflow-x: auto; white-space: pre; color: #b9c8e6;
+  }
+  .diagram .hi { color: var(--accent); font-weight: 700; }
+  .diagram .g { color: var(--accent2); }
+  .diagram .p { color: var(--purple); }
+  .diagram .w { color: var(--warn); }
+  .diagram .r { color: var(--danger); }
+  ul.tight li { margin: 5px 0; }
+  .kv { color: var(--muted); }
+  .ok { color: var(--accent2); }
+  .warn { color: var(--warn); }
+  .bad { color: var(--danger); }
+  footer { text-align: center; color: var(--muted); font-size: 0.85em; margin-top: 60px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>maibot_bilibili_live_adapter<span class="en"> / 运行流程与机制详解</span></h1>
+  <p class="sub">
+    MaiBot 的 <b>Input-only（仅输入）</b>B 站直播适配插件：从直播间采集弹幕注入 MaiBot 主链路，
+    将 MaiBot 回复在本机渲染为「语音 + 绿幕字幕 + Live2D / 立绘 / 音效」直播表现，但<b>不把回复写回 B 站</b>。
+    配套独立服务端 <code>livehub</code> 实现多 AI 共享直播间。
+  </p>
+  <div class="meta">
+    <span class="tag">插件 ID: maibot.bilibili-live-adapter</span>
+    <span class="tag green">manifest v2 · host 1.0.0–1.99.99</span>
+    <span class="tag purple">SDK 2.3.0–2.99.99（宿主 1.1.3 / SDK 2.7.1 实测通过）</span>
+    <span class="tag warn">直播间 4538234 / 测试房 22889518</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <a href="#s1">① 全局架构</a>
+  <a href="#s2">② 启动流程</a>
+  <a href="#s3">③ 输入链路</a>
+  <a href="#s4">④ 回复输出链路</a>
+  <a href="#s5">⑤ livehub 专题</a>
+  <a href="#s6">⑥ 模块地图</a>
+  <a href="#s7">⑦ 配置体系</a>
+  <a href="#s8">⑧ 兼容修复</a>
+  <a href="#s9">⑨ 测试与运维</a>
+</nav>
+
+<main>
+
+<!-- ================= ① 全局架构 ================= -->
+<section id="s1">
+  <h2><span class="no">01</span>全局架构：两条链路 + 一个编排核心</h2>
+  <p class="desc">
+    插件整体呈「输入链路 → MaiBot 主链路 → 输出链路」的环形结构。输入链路把直播事件注入 MaiBot；
+    输出链路截获 MaiBot 回复并驱动本地渲染。所有模块由 <code>plugin.py</code>（约 7900 行）统一编排。
+  </p>
+
+  <div class="diagram">
+<span class="hi">┌──────────────── 输入链路（Input-only）────────────────┐</span>
+
+  B站弹幕 WS ─┐
+  livehub 事件─┼─→ <span class="g">bilibili_transport</span> / <span class="g">hub_input_client</span>
+  本地语音ASR ─┤        │ 规范化 live event（去重/筛选/采样）
+  视觉/视频   ─┘        ▼
+                  <span class="g">event_router</span>（事件路由 + 窗口缓冲 + 空闲话题）
+                        ▼
+                  <span class="g">interaction_planner</span>（弹幕优先级采样）
+                        ▼
+                  <span class="g">message_codec</span>（→ 模拟 QQ 群消息 MessageDict）
+                        ▼
+              ctx.gateway.<span class="hi">route_message</span> ──→ <span class="hi">MaiBot 主链路</span>
+
+<span class="p">┌──────────────── 输出链路（本地表现，不回写B站）────────┐</span>
+
+  MaiBot 回复 ──→ <span class="p">@MessageGateway(duplex)</span> handle_bilibili_gateway
+                        │  串行化投递（打断/语音租约协调）
+        ┌─────────┬─────┼──────┬──────────┬─────────┐
+        ▼         ▼     ▼      ▼          ▼         ▼
+     <span class="p">TTS</span>     <span class="p">字幕WebUI</span> <span class="p">Live2D</span>  <span class="p">音效板</span>   <span class="p">立绘</span>    <span class="p">Hub转发</span>
+   (GPT-SoVITS)(绿幕OBS) (口型/表情) (关键词/LLM) (LLM选表情) (多AI协调)
+
+<span class="w">┌──────────────── 编排核心 ────────────────┐</span>
+
+  <span class="w">plugin.py: BilibiliLiveAdapterPlugin</span>
+  on_load / on_unload / on_config_update → _restart_runtime
+  装配 transport / router / live2d / tts / soundboard / livehub 联动
+
+<span class="w">┌──────────────── 配套服务端（独立进程）────────────────┐</span>
+
+  <span class="w">livehub</span>（python -m livehub，端口 18190）
+  B站采集 → 事件环(seq) → HTTP轮询 + WS广播 → 多bot共享
+  参与者presence / 语音互斥队列 / 回复转发</div>
+
+  <div class="card hl">
+    <b>核心设计原则</b>
+    <ul class="tight" style="margin-top:8px">
+      <li><b>输入</b>：高频采集、低频理解 —— 弹幕经去重/筛选/窗口缓冲后批量注入，避免刷屏冲击主链路</li>
+      <li><b>输出</b>：回复投递全程<b>串行化</b>（<code>_run_serialized_delivery</code>），支持打断、Hub 语音租约、分段渲染</li>
+      <li><b>Input-only</b>：duplex 网关但从不把回复发回 B 站，只驱动本地表现（OBS 推流侧消费）</li>
+      <li><b>模拟群聊</b>：弹幕注入为「QQ 群消息」形态（<code>group_id=房间号</code>），复用 MaiBot 群聊理解能力</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================= ② 启动流程 ================= -->
+<section id="s2">
+  <h2><span class="no">02</span>启动与生命周期流程</h2>
+  <p class="desc">宿主加载 manifest → Runner 子进程执行 <code>on_load</code> → 装配运行时 → 常驻。配置热重载走同一条重建路径。</p>
+
+  <div class="flow">
+    <div class="fstep"><div class="idx">1</div><div class="body">
+      <b>Manifest 校验</b><span class="badge core">宿主侧</span>
+      <div class="d">宿主 <code>manifest_validator.load_from_plugin_path()</code> 校验 <code>_manifest.json</code>：版本区间（host ≤1.99.99 / SDK 2.x）、capabilities 声明（host.route_message 等 5 项）。失败则插件直接不加载。</div>
+    </div></div>
+    <div class="arrow">▼</div>
+    <div class="fstep"><div class="idx">2</div><div class="body">
+      <b>Runner 子进程启动</b><span class="badge core">宿主侧</span>
+      <div class="d">宿主 supervisor 拉起 Runner 进程，注入 SDK 环境；插件模块 <code>plugin.py</code> 被 import（此时顶层只做依赖导入，<b>不做</b>重活 —— A_memorix 等重资源全部延迟到使用点）。</div>
+    </div></div>
+    <div class="arrow">▼</div>
+    <div class="fstep"><div class="idx">3</div><div class="body">
+      <b>on_load → _restart_runtime</b>
+      <div class="d">读取配置（<code>_load_settings</code>）→ <code>_stop_runtime()</code> 清理旧运行时 → <b>livehub 联动</b>（若 <code>auto_start_livehub=true</code> 且探测不在线，则 <code>create_subprocess_exec</code> 拉起 <code>python -m livehub</code> 并轮询就绪）→ 逐项装配。</div>
+    </div></div>
+    <div class="arrow">▼</div>
+    <div class="fstep"><div class="idx">4</div><div class="body">
+      <b>运行时装配（按配置开关）</b>
+      <div class="d">B站 transport（4 路并行 WS）→ event_router → HubInputClient（WS 订阅 + HTTP 轮询）→ Live2D 控制器（adaptive/soullink/embodied 三 scheme）→ TTS provider → 字幕 WebUI 服务 → 音效板 → 立绘控制器 → 网关状态上报 <code>update_state(ready)</code>。</div>
+    </div></div>
+    <div class="arrow">▼</div>
+    <div class="fstep"><div class="idx">5</div><div class="body">
+      <b>组件注册</b>
+      <div class="d"><code>@Tool</code> 视觉/视频/Live2D 调试等工具、<code>@API</code> 接口、<code>@HookHandler</code> 三个钩子（<code>send_service.before_send</code>、<code>maisaka.planner.before_request/after_response</code>）随类装饰器注册进宿主。</div>
+    </div></div>
+    <div class="arrow">▼</div>
+    <div class="fstep"><div class="idx">6</div><div class="body">
+      <b>常驻运行 / 热重载 / 卸载</b>
+      <div class="d">配置变更触发 <code>on_config_update → _restart_runtime</code>（先停后起，livehub 子进程一并重建）；<code>on_unload → _stop_runtime</code> 逆序停止全部组件并关闭自己拉起的 livehub（不动手动启动的实例）。</div>
+    </div></div>
+  </div>
+
+  <div class="card">
+    <b>livehub 联动细节</b>（<code>_maybe_auto_start_livehub</code>）
+    <ul class="tight" style="margin-top:8px">
+      <li>探测：应用层 <code>GET /api/health</code> 校验 <code>success</code> 字段（2s 超时，带 auth_token 时附 Bearer 头）—— 避免端口被无关程序占用的误判</li>
+      <li>拉起：<code>sys.executable -m livehub --host --port --room-id</code>，cwd=插件目录，日志重定向 <code>data/logs/livehub.log</code></li>
+      <li>并发保护：<code>_livehub_start_lock</code> 串行化 start/stop，防止 on_load 与 on_config_update 竞争</li>
+      <li>就绪等待：20 × 0.5s 轮询；进程早退则读日志告警并清理句柄</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================= ③ 输入链路 ================= -->
+<section id="s3">
+  <h2><span class="no">03</span>输入链路：从弹幕到 MaiBot 群聊消息</h2>
+  <p class="desc">四个事件来源汇聚到同一条注入管道。协议编解码由插件与 livehub 共享的 <code>livehub/bilibili_protocol.py</code> 单一实现提供。</p>
+
+  <h3>3.1 事件来源</h3>
+  <table>
+    <tr><th>来源</th><th>模块</th><th>机制</th></tr>
+    <tr><td><span class="badge in">B站弹幕</span></td><td><code>bilibili_transport</code> / <code>livehub/capture</code></td><td>getConf 获取服务器+token → 4 路并行 WS → auth → 30s 心跳 → zlib 包解析 → DANMU_MSG / SC / 礼物 / 舰长 规范化</td></tr>
+    <tr><td><span class="badge hub">Hub 事件</span></td><td><code>hub_input_client</code></td><td>WS 订阅 + HTTP 轮询双通道拉取 livehub 事件环；首次 sync 建立去重基线（不交付历史），此后按 seq 递增交付</td></tr>
+    <tr><td><span class="badge in">本地语音</span></td><td><code>local_voice_*</code> 4 模块</td><td>麦克风连续采集 + 实时 ASR（sherpa-onnx），转 local_voice 事件</td></tr>
+    <tr><td><span class="badge in">视觉/视频</span></td><td><code>vision_tool</code> / <code>video_watch</code></td><td>桌面截图视觉总结；空闲时 B 站视频观看与解说（Tool 触发式）</td></tr>
+  </table>
+
+  <h3>3.2 处理管道（event_router）</h3>
+  <div class="flow">
+    <div class="fstep"><div class="idx">a</div><div class="body"><b>去重与清洗</b><div class="d">event_id 窗口去重（多路 WS 同弹幕只留一份）、非法字段过滤、类型白名单（danmaku/super_chat/gift/guard/hub_local_input/hub_bot_reply）</div></div></div>
+    <div class="arrow">▼</div>
+    <div class="fstep"><div class="idx">b</div><div class="body"><b>窗口缓冲与批量注入</b><div class="d">弹幕先进缓冲窗口，按节奏批量投递，避免高频刷屏；付费事件（SC/舰长）走高优先级通道</div></div></div>
+    <div class="arrow">▼</div>
+    <div class="fstep"><div class="idx">c</div><div class="body"><b>采样选择（interaction_planner）</b><div class="d">按优先级与配额挑选本批次注入哪些弹幕 —— 低频高质，保护 MaiBot 注意力</div></div></div>
+    <div class="arrow">▼</div>
+    <div class="fstep"><div class="idx">d</div><div class="body"><b>消息构造（message_codec）</b><div class="d">构造 MessageDict：<code>group_info.group_id = 房间号</code>、<code>group_name = bilibili_live_&lt;房间&gt;</code>、<code>user_info = 弹幕用户</code>、<code>additional_config</code> 携带 <code>platform_io_account_id/scope</code> 路由键 + <code>maibot_memory_platform=qq</code> + <code>maibot_local_render_only=True</code>。即<b>弹幕被模拟为 QQ 群聊消息</b>进入 MaiBot。</div></div></div>
+    <div class="arrow">▼</div>
+    <div class="fstep"><div class="idx">e</div><div class="body"><b>注入网关</b><div class="d"><code>ctx.gateway.route_message()</code>（能力名 <code>host.route_message</code>）→ MaiBot 主链路按普通群消息处理（意图/记忆/回复决策全套流程）</div></div></div>
+  </div>
+
+  <h3>3.3 空闲话题（idle topic）</h3>
+  <div class="card">
+    直播间冷场时，<code>topic_extension_client</code> + <code>topic_state</code> 维护话题池：从历史弹幕/视频观看记忆中提取可聊话题，
+    经 <code>event_router</code> 以低优先级注入，让 bot 在无人发言时也能自然开口。话题状态持久化于 <code>data/live_topic_state.json</code>。
+  </div>
+</section>
+
+<!-- ================= ④ 输出链路 ================= -->
+<section id="s4">
+  <h2><span class="no">04</span>回复输出链路：本地直播表现</h2>
+  <p class="desc">MaiBot 的回复经 duplex 网关进入插件后，走<b>串行化投递</b>，依次驱动各渲染通道。全程不回写 B 站。</p>
+
+  <div class="flow">
+    <div class="fstep"><div class="idx">1</div><div class="body"><b>网关接收</b><span class="badge out">duplex</span><div class="d"><code>@MessageGateway(route_type="duplex")</code> 的 <code>handle_bilibili_gateway</code> 收到 MaiBot 回复；按 <code>session_id == _build_live_chat_id()</code> 识别直播会话</div></div></div>
+    <div class="arrow">▼</div>
+    <div class="fstep"><div class="idx">2</div><div class="body"><b>串行化队列</b><div class="d"><code>_run_serialized_delivery</code> 保证回复按序渲染；新回复到来时可<b>打断</b>当前播报；与 Hub 语音租约联动（见 ⑤）</div></div></div>
+    <div class="arrow">▼</div>
+    <div class="fstep"><div class="idx">3</div><div class="body"><b>并行渲染通道</b><div class="d">
+      <b>TTS</b>（<code>tts_provider</code> GPT-SoVITS 合成 → <code>audio_output</code> sounddevice 播放）·
+      <b>字幕</b>（<code>subtitle_webui</code> 绿幕页面 + <code>translation_client</code> 双语翻译，OBS 抠像叠加）·
+      <b>Live2D</b>（口型时间线 + 表情/动作参数控制）·
+      <b>音效板</b>（关键词即时触发 + LLM 语义选择）·
+      <b>立绘</b>（LLM 选表情 → <code>_tachie_window.py</code> 子进程显示）·
+      <b>Hub 转发</b>（<code>/api/client/reply</code> 通知其他 bot）
+    </div></div></div>
+    <div class="arrow">▼</div>
+    <div class="fstep"><div class="idx">4</div><div class="body"><b>渲染完成回调</b><div class="d">语音播完 → 释放语音租约（speak-complete）→ 队列下一条；Live2D 回到默认姿态</div></div></div>
+  </div>
+
+  <h3>4.1 Live2D 三种 scheme</h3>
+  <table>
+    <tr><th>scheme</th><th>模块</th><th>机制</th></tr>
+    <tr><td><b>adaptive</b></td><td><code>live2d_adaptive/</code></td><td>纯参数控制：语义映射（<code>semantic_mapper</code>）→ 表情/动作/口型参数写入模型内存桥；<code>capability_probe</code> 探测模型支持的能力面</td></tr>
+    <tr><td><b>soullink</b></td><td><code>live2d_shell_*</code> + <code>live2d_soullink_vendor</code></td><td>SoulLink Shell 桌面窗口（<code>live2d_shell_window_process.py</code> 子进程渲染），插件经 <code>live2d_shell_protocol</code> 消息驱动</td></tr>
+    <tr><td><b>embodied</b></td><td><code>live2d_adaptive/embodied.py</code></td><td>连接宿主 avatar-state WebSocket 获取具身状态流（token 取自插件配置），驱动鼠标跟随（mouse_follow）、本地口型（local_lipsync）、语音时间线对齐</td></tr>
+  </table>
+
+  <h3>4.2 Hook 拦截</h3>
+  <div class="card">
+    三个 <code>@HookHandler</code>（mode=BLOCKING, order=LATE, error_policy=LOG）：
+    <code>send_service.before_send</code>（回复出站前拦截 → 转入本地渲染管道）、
+    <code>maisaka.planner.before_request / after_response</code>（规划上下文注入直播状态，如「当前正在直播、观众正在讨论 XX」）。
+  </div>
+</section>
+
+<!-- ================= ⑤ livehub 专题 ================= -->
+<section id="s5">
+  <h2><span class="no">05</span>livehub 服务端专题：多 AI 共享直播间</h2>
+  <p class="desc">
+    多个 MaiBot 实例共享同一个直播间时，由 livehub（独立进程，<code>python -m livehub</code>）统一采集 B 站弹幕并广播，
+    各 bot 作为「参与者」接入。协议与插件客户端 <code>hub_input_client</code> / <code>plugin.py</code> 逐字段对齐。
+  </p>
+
+  <div class="grid2">
+    <div class="card">
+      <b>核心机制</b>
+      <ul class="tight" style="margin-top:8px">
+        <li><b>事件环</b>：每条事件分配递增 <code>seq</code>，deque 历史窗口（<code>history_limit</code>），HTTP 轮询与 WS 推送双通道</li>
+        <li><b>参与者管理</b>：presence 心跳（<code>/api/client/presence</code>）注册 bot，超时自动离线；上限 128</li>
+        <li><b>语音互斥</b>：speak-request 立即授予或排队（队列上限 128）→ speak-complete 释放并移交队首 → 超时自动释放（expected_duration + 宽限秒）</li>
+        <li><b>回复转发</b>：<code>/api/client/reply</code>（兼容插件 JsonBridgeClient 包装形态）→ bot_reply 事件广播</li>
+        <li><b>手动注入</b>：<code>/api/inject</code> → local_inject 事件（调试/外部输入源）</li>
+        <li><b>认证</b>：可选 Bearer token（hmac 恒定时间比较），失败 401 并记审计日志</li>
+      </ul>
+    </div>
+    <div class="card">
+      <b>可靠性设计</b>
+      <ul class="tight" style="margin-top:8px">
+        <li><b>多路去重</b>：并行 WS 收到相同弹幕按 event_id 10s 窗口去重</li>
+        <li><b>指数退避</b>：断线重连 base×2^(n-1) 封顶 60s，连接稳定自动复位</li>
+        <li><b>接收超时联动</b>：receive 超时 = max(60s, 心跳×2+5)，冷清直播间不误断</li>
+        <li><b>慢客户端保护</b>：WS 广播 gather 并行、单客户端 5s 超时剔除；广播任务积压 &gt;32 丢弃（事件仍可轮询）</li>
+        <li><b>启动回滚</b>：服务启动任一步失败自动清理已启动组件</li>
+        <li><b>配置钳制</b>：端口/房间/超时等非法值回退默认并告警，永不带病启动</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>5.1 HTTP / WS 端点</h3>
+  <table>
+    <tr><th>端点</th><th>方法</th><th>用途</th></tr>
+    <tr><td><code>/api/events?limit=N</code></td><td>GET</td><td>事件历史轮询 → {events, participants, speaking, health}</td></tr>
+    <tr><td><code>/api/health</code></td><td>GET</td><td>健康检查（联动探测也用它）</td></tr>
+    <tr><td><code>/api/client/presence</code></td><td>POST</td><td>心跳注册 → 精简状态（participants/speaking/health）</td></tr>
+    <tr><td><code>/api/client/speak-request</code></td><td>POST</td><td>语音请求 → {granted, speaking}</td></tr>
+    <tr><td><code>/api/client/speak-complete</code></td><td>POST</td><td>语音释放 → {speaking}</td></tr>
+    <tr><td><code>/api/client/reply</code></td><td>POST</td><td>回复转发 → {success, seq}</td></tr>
+    <tr><td><code>/api/inject</code></td><td>POST</td><td>手动注入 → {success, seq}</td></tr>
+    <tr><td><code>/ws</code></td><td>GET</td><td>事件流：连接即推 snapshot，此后 event / health 实时推送</td></tr>
+  </table>
+
+  <h3>5.2 多 bot 语音互斥时序</h3>
+  <div class="diagram">
+bot-A                     livehub                    bot-B
+  │  speak-request(r1)       │                          │
+  ├─────────────────────────→ │ 无人在说 → <span class="g">granted=true</span>  │
+  │                          │                          │
+  │                          │      speak-request(r2)    │
+  │                          │ ←────────────────────────┤ <span class="w">granted=false（排队）</span>
+  │  (A 播报 TTS + 口型…)     │                          │
+  │  speak-complete(r1)      │                          │
+  ├─────────────────────────→ │ <span class="g">移交队首</span> → speaking=r2     │
+  │                          │ ── WS health 广播 ───────→ │ r2 获得说话权
+  │                          │                          │ (B 开始播报)
+  │                          │   超时未释放?              │
+  │                          │   expected+grace 到点      │
+  │                          │   <span class="r">自动释放 → 队首</span>          │</div>
+</section>
+
+<!-- ================= ⑥ 模块地图 ================= -->
+<section id="s6">
+  <h2><span class="no">06</span>模块地图（50+ 模块按功能域）</h2>
+  <table>
+    <tr><th style="width:170px">功能域</th><th>模块</th><th style="width:90px">类型</th></tr>
+    <tr><td>入口/生命周期</td><td><code>plugin.py</code> · <code>__init__.py</code> · <code>_manifest.json</code></td><td><span class="badge core">核心</span></td></tr>
+    <tr><td>配置/常量</td><td><code>config.py</code>（50+ pydantic 模型）· <code>constants.py</code> · <code>runtime_state.py</code></td><td><span class="badge core">核心</span></td></tr>
+    <tr><td>B站输入</td><td><code>bilibili_transport</code> · <code>bilibili_codec</code> · <code>event_router</code> · <code>interaction_planner</code> · <code>message_codec</code> · <code>hub_input_client</code> · <code>bridge_client</code></td><td><span class="badge in">输入</span></td></tr>
+    <tr><td>输出渲染</td><td><code>tts_provider</code> · <code>audio_output</code> · <code>translation_client</code> · <code>subtitle_webui</code> · <code>subtitle_native_*</code>×3</td><td><span class="badge out">输出</span></td></tr>
+    <tr><td>Live2D/表现</td><td><code>live2d_adaptive/</code>（10 模块）· <code>live2d_shell_*</code>×4 · <code>live2d_control_state</code> · <code>live2d_soullink_vendor/</code> · <code>tachie_controller</code> · <code>_tachie_window</code> · <code>soundboard</code> · <code>soundboard_selection_client</code></td><td><span class="badge out">输出</span></td></tr>
+    <tr><td>视觉/视频</td><td><code>vision_tool</code> · <code>video_watch</code></td><td><span class="badge in">输入</span></td></tr>
+    <tr><td>本地语音</td><td><code>local_voice_controller/input/native_runtime/state</code></td><td><span class="badge in">输入</span></td></tr>
+    <tr><td>RVC 唱歌</td><td><code>netease_client</code> · <code>audius_client</code> · <code>music_source_provider</code> · <code>audio_separator_bridge</code> · <code>rvc_infer_bridge</code> · <code>rvc_song_pipeline</code> · <code>song_request_service/console</code></td><td><span class="badge out">输出</span></td></tr>
+    <tr><td>STS2 游戏桥</td><td><code>sts2_controller/llm_client/mcp_client/logging</code></td><td><span class="badge core">桥接</span></td></tr>
+    <tr><td>livehub 服务端</td><td><code>livehub/</code>：bilibili_protocol（协议单一实现）· capture · hub · server · config · _utils · __main__</td><td><span class="badge hub">服务端</span></td></tr>
+    <tr><td>辅助</td><td><code>tools/</code>（watch/inject 弹幕工具、VTS 校准）· <code>webui/</code> · <code>docs/</code> · <code>tests/</code></td><td><span class="badge">支撑</span></td></tr>
+  </table>
+  <div class="card" style="margin-top:14px">
+    <b>零重复原则</b>：B 站协议编解码 / 事件规范化 / 地址解析统一在 <code>livehub/bilibili_protocol.py</code>（单一事实来源）；
+    <code>bilibili_codec.py</code> 为 re-export 兼容层；<code>bilibili_transport</code> 地址解析复用同一实现。
+    协议改动只改一处，交叉一致性由 <code>tests/test_livehub_codec.py</code> 锁定。
+  </div>
+</section>
+
+<!-- ================= ⑦ 配置体系 ================= -->
+<section id="s7">
+  <h2><span class="no">07</span>配置体系</h2>
+  <p class="desc">单一 <code>config.toml</code>，由 <code>config.py</code> 中 50+ 个 pydantic 模型分层校验。关键配置域：</p>
+  <table>
+    <tr><th>配置域</th><th>关键项</th><th>说明</th></tr>
+    <tr><td><code>[plugin]</code></td><td>enabled</td><td>插件总开关</td></tr>
+    <tr><td><code>[bilibili]</code></td><td>room_id=4538234 · parallel_ws_connections=4</td><td>直播间与采集参数</td></tr>
+    <tr><td><code>[identity]</code></td><td>bot_user_id · bot_nickname</td><td>bot 直播身份（参与 Hub 身份匹配）</td></tr>
+    <tr><td><code>[hub_input]</code></td><td>enabled · auto_start_livehub · livehub_room_id · urls(18190)</td><td>Hub 接入与 livehub 自动拉起开关</td></tr>
+    <tr><td><code>[hub_output]</code></td><td>client_id · bot_name · forward_platform_replies</td><td>回复转发身份</td></tr>
+    <tr><td><code>[live2d]</code></td><td>enabled · scheme · embodied.*</td><td>Live2D 三 scheme 与具身化</td></tr>
+    <tr><td><code>[tts]</code> / <code>[soundboard]</code> / <code>[tachie]</code> / <code>[webui]</code></td><td>各 enabled</td><td>渲染通道开关</td></tr>
+    <tr><td><code>[sts2]</code> / <code>[vision]</code> / <code>[video_watch]</code> / <code>[local_voice]</code> / <code>[rvc_song_request]</code></td><td>各 enabled</td><td>扩展功能域（当前部分关闭）</td></tr>
+  </table>
+</section>
+
+<!-- ================= ⑧ 兼容修复 ================= -->
+<section id="s8">
+  <h2><span class="no">08</span>宿主 1.1.3 兼容性修复记录</h2>
+  <p class="desc">插件从旧版宿主迁移时发现并修复的问题（均已验证）：</p>
+  <table>
+    <tr><th>#</th><th>问题</th><th>修复</th><th>状态</th></tr>
+    <tr><td>0</td><td>manifest <code>max_version=1.0.0</code> → 宿主 1.1.3 拒绝加载</td><td><code>max_version → 1.99.99</code></td><td class="ok">✓ 已修复</td></tr>
+    <tr><td>1</td><td><code>global_config.maisaka.avatar_state</code> 已删除 → embodied 装配 AttributeError</td><td>token 仅从插件配置取值，回退默认</td><td class="ok">✓ 已修复</td></tr>
+    <tr><td>2</td><td>A_memorix 顶层导入 → Runner 子进程拿未启动副本，记忆写入静默失败</td><td><code>_resolve_memorix_host_service()</code> 延迟导入 + kernel 检测，不可用告警跳过</td><td class="ok">✓ 已修复</td></tr>
+    <tr><td>3</td><td>自算 session hash 写 <code>maibot_memory_chat_id</code>（规范禁止 + 无消费者）</td><td>3 处全部移除，归属走宿主 platform_io_* 路由</td><td class="ok">✓ 已修复</td></tr>
+    <tr><td>4</td><td><code>parallel_turns_*</code> 字段已删除</td><td>确认机制整体移除，恒 False + 注释标注</td><td class="ok">✓ 已处理</td></tr>
+    <tr><td>5</td><td>capabilities 旧命名</td><td>→ <code>host.route_message / host.update_message_gateway_state</code></td><td class="ok">✓ 已修复</td></tr>
+  </table>
+</section>
+
+<!-- ================= ⑨ 测试与运维 ================= -->
+<section id="s9">
+  <h2><span class="no">09</span>测试体系与日常运维</h2>
+
+  <div class="grid3">
+    <div class="card">
+      <b>单元 / 集成测试</b>
+      <ul class="tight" style="margin-top:8px">
+        <li><code>tests/test_livehub_codec.py</code>（14）协议编解码 + 交叉一致性</li>
+        <li><code>tests/test_livehub_hub.py</code>（12）状态机/语音队列/超时</li>
+        <li><code>tests/test_livehub_server.py</code>（11）HTTP/WS 端到端</li>
+        <li><code>tests/test_livehub_dedup.py</code>（4）多路去重</li>
+        <li><b>41/41 全绿</b>；另有插件历史测试集 <code>tests/test_*.py</code></li>
+      </ul>
+    </div>
+    <div class="card">
+      <b>真实抓取验证</b>
+      <ul class="tight" style="margin-top:8px">
+        <li><code>python tools/watch_bilibili_danmaku.py --room-id 22889518</code></li>
+        <li>已实测：4 路 WS 就绪，真实弹幕实时解析（用户名+UID+内容）</li>
+        <li>livehub 侧：<code>python -m livehub --room-id 22889518 --log-level DEBUG</code></li>
+      </ul>
+    </div>
+    <div class="card">
+      <b>运维要点</b>
+      <ul class="tight" style="margin-top:8px">
+        <li>livehub 日志：<code>data/logs/livehub.log</code></li>
+        <li>启动顺序建议：livehub 先于 MaiBot（或开 auto_start_livehub 由插件拉起）</li>
+        <li>多实例共享 livehub 时只开一个 auto_start</li>
+        <li>auth_token 三处一致（livehub/config.toml、hub_input、hub_output）</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card hl" style="margin-top:16px">
+    <b>快速启动命令</b>
+<pre style="margin-bottom:0"><span class="c"># 1. 启动 livehub（独立服务端）</span>
+python -m livehub --room-id 4538234
+
+<span class="c"># 2. 启动 MaiBot（插件随宿主加载；或配置 auto_start_livehub=true 由插件拉起 livehub）</span>
+
+<span class="c"># 3. 验证抓取（独立观察，不进 MaiBot）</span>
+python tools/watch_bilibili_danmaku.py --room-id 22889518
+
+<span class="c"># 4. 模拟注入（弹幕→QQ群消息→运行中的MaiBot）</span>
+python tools/inject_bilibili_danmaku.py --room-id 4538234
+
+<span class="c"># 5. 跑测试</span>
+python -m pytest tests/test_livehub_*.py -q</pre>
+  </div>
+</section>
+
+<footer>
+  maibot_bilibili_live_adapter · 架构演示文档 · 基于宿主 1.1.3 / SDK 2.7.1 实测状态生成
+</footer>
+
+</main>
+</body>
+</html>

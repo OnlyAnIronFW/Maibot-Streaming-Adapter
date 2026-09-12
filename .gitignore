@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+
+# 备份与历史杂项（保留源码，忽略运行期产生的备份）
+*.bak*
+config.toml.backup.*
+
+# 运行期配置与数据（可能含凭据，不提交；示例见 config.example.toml）
+config.toml
+data/
+logs/
+*.log
+*.jsonl
+
+# 本地 vendored 二进制依赖（sherpa-onnx 请通过 pip 安装）
+vendor/
+
+# 本地工具环境
+.reasonix/
+reasonix.toml
+
+# 测试与静态检查缓存
+.pytest_cache/
+.coverage
+.ruff_cache/
+
+# 前端
+node_modules/

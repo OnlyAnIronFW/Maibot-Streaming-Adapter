@@ -1,0 +1,22 @@
+# 依赖以 pyproject.toml 为准，本文件由 pyproject.toml 同步生成
+aiohttp>=3.12.14
+httpx>=0.28.0
+maim-message==0.6.8
+maibot-plugin-sdk>=2.3.0
+mcp>=1.0.0
+numpy>=2.2.6
+openai>=1.95.0
+pillow>=11.3.0
+pydantic>=2.11.7
+pypinyin>=0.54.0
+sounddevice>=0.4.6
+tomlkit>=0.13.3
+
+# 开发依赖
+pytest
+pytest-asyncio
+ruff>=0.12.2
+
+# 可选依赖（pyproject.toml [project.optional-dependencies]）
+# 本地语音（local_voice）sherpa-onnx 流式 ASR 运行时，需要时安装：
+# sherpa-onnx>=1.12.39

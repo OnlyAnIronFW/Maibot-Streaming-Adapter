@@ -1,0 +1,673 @@
+[plugin]
+enabled = true
+config_version = "0.2.4"
+
+[bilibili]
+room_id = 4538234
+uid = 0
+ws_url = "wss://broadcastlv.chat.bilibili.com/sub"
+heartbeat_interval_sec = 30.0
+reconnect_delay_sec = 5.0
+connect_timeout_sec = 10.0
+danmaku_idle_reconnect_sec = 60.0
+parallel_ws_connections = 4
+user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+route_gifts_as_messages = true
+history_fallback_enabled = true
+
+[identity]
+bot_user_id = "maibot-live"
+bot_nickname = "MaiBot Live"
+route_scope = ""
+
+[filters]
+ignored_user_ids = []
+blocked_words = []
+min_text_length = 0
+
+[interaction]
+enabled = true
+window_seconds = 2.0
+max_batch_size = 30
+max_selected_per_window = 2
+route_all_when_pending_leq = 3
+min_inject_interval_sec = 2.0
+max_injections_per_minute = 12
+speaking_slowdown_factor = 0.35
+bot_names = [
+    "maibot",
+    "mai",
+]
+keywords = []
+llm_enabled = true
+llm_timeout_sec = 4.0
+idle_topic_enabled = true
+idle_topic_after_sec = 15.0
+idle_topic_prompt = "直播间暂时没有新弹幕，请主动找一个轻松、有梗、能让观众马上接话的话题和观众聊聊。优先强关联玩梗、搞抽象、假装故障，不要太正经。"
+idle_topic_context_enabled = true
+idle_topic_context_limit = 8
+idle_topic_history_limit = 5
+serial_reply_timeout_sec = 90.0
+
+[interaction.topic_extension]
+enabled = true
+api_provider = "BaiLian"
+model_name = ""
+model_identifier = "qwen3.6-flash"
+enable_thinking = false
+temperature = 0.85
+max_tokens = 900
+timeout_sec = 45.0
+
+[napcat]
+disable_on_live_connect = true
+restore_on_live_disconnect = false
+control_api_name = "adapter.napcat.connection.set_enabled"
+
+[live2d]
+enabled = false
+scheme = "soullink"
+http_url = ""
+websocket_url = "ws://127.0.0.1:18081/live2d"
+auth_token = ""
+connect_timeout_sec = 10.0
+driver = "json"
+send_bot_replies = true
+mirror_other_platform_replies = true
+forward_inbound_danmaku = false
+
+[live2d.soullink]
+enabled = true
+model_name = ""
+api_provider = "DeepSeek"
+model_identifier = "deepseek-v4-flash"
+temperature = 0.35
+max_tokens = 420
+enable_thinking = false
+response_format_json_object = true
+eye_open_binary = false
+joint_motion_boost = 1.25
+tts_motion_enabled = true
+tts_motion_frame_duration_ms = 1000
+tts_motion_prefetch_frames = 8
+transition_sample_interval_ms = 16
+tts_motion_keep_lip_sync = true
+keep_mouth_form = true
+parameter_weight = 0.82
+custom_prompt = ""
+
+[live2d.soullink_shell]
+enabled = false
+host = "127.0.0.1"
+port = 18183
+start_native_window = false
+click_through_default = false
+always_on_top = true
+remember_window_geometry = true
+start_interactive = true
+open_devtools = false
+fallback_to_vts = true
+
+[live2d.adaptive]
+enabled = true
+model_path = ""
+safety_level = "normal"
+min_confidence = 0.6
+
+[live2d.sync]
+enabled = true
+chars_per_second = 7.5
+prepare_ms = 180
+release_ms = 600
+mouth_update_interval_ms = 40
+mouth_closed_value = 0.0
+mouth_open_threshold = 0.02
+mouth_open_gamma = 0.65
+mouth_open_gain = 2.9
+mouth_open_max = 1.0
+mouth_sync_mode = "plugin_local"
+mouth_amplitude_mix = 0.8
+mouth_viseme_lead_ms = 10
+mouth_open_smoothing = 0.4
+mouth_open_attack_smoothing = 0.06
+mouth_open_release_smoothing = 0.45
+mouth_open_min_delta = 0.015
+mouth_form_smoothing = 0.18
+mouth_form_min_delta = 0.015
+mouth_keyframe_transition_ms = 85
+viseme_timeline_enabled = false
+mouth_vowel_a_open = 1.0
+mouth_vowel_a_form = 1.0
+mouth_vowel_e_open = 0.6
+mouth_vowel_e_form = 0.6
+mouth_vowel_i_open = 0.2
+mouth_vowel_i_form = 0.5
+mouth_vowel_o_open = 1.0
+mouth_vowel_o_form = 0.0
+mouth_vowel_u_open = 0.3
+mouth_vowel_u_form = 0.2
+parameter_keepalive_ms = 650
+lip_sync_only_mode = false
+idle_motion_enabled = false
+idle_motion_model = "hiyori"
+idle_motion_name = "m01"
+idle_motion_file = "m01.motion3.json"
+idle_motion_interval_ms = 9000
+idle_sway_enabled = false
+idle_sway_interval_ms = 900
+idle_sway_intensity = 0.25
+speech_sway_enabled = false
+speech_sway_intensity = 0.45
+speech_sway_update_interval_ms = 160
+
+[live2d.embodied]
+enabled = true
+source_url = "ws://127.0.0.1:8001/api/webui/ws"
+source_token = ""
+source_session_id = ""
+fallback_to_legacy = true
+mouse_follow_ui_enabled = true
+mouse_follow_default_enabled = false
+mouse_follow_return_after_sec = 1.2
+mouse_follow_cooldown_sec = 0.45
+mouse_follow_poll_interval_ms = 33
+mouse_follow_eye_gain = 0.55
+mouse_follow_head_gain = 0.28
+mouse_follow_body_gain = 0.12
+speech_motion_audio_gain = 1.0
+speech_motion_emotion_gain = 1.0
+speech_motion_vertical_pump_gain = 1.25
+speech_motion_lateral_gain = 1.25
+speech_motion_pitch_gain = 1.0
+speech_motion_yaw_gain = 1.0
+speech_motion_roll_gain = 0.8
+speech_motion_shoulder_gain = 0.75
+mouse_follow_smoothing_ms = 45
+
+[live2d.embodied.blink]
+enabled = true
+double_blink_chance = 0.03
+close_ms = 60
+hold_ms = 28
+open_ms = 110
+double_blink_gap_ms = 140
+interval_min_sec = 2.8
+interval_max_sec = 5.5
+
+[live2d.embodied.wink]
+enabled = true
+close_ms = 65
+hold_ms = 90
+open_ms = 110
+request_cooldown_sec = 1.8
+non_target_eye_drop = 0.08
+
+[live2d.embodied.debug_commands]
+enabled = true
+prefix = "/l2d"
+admin_user_ids = ["27853192"]
+drop_non_admin_commands = true
+
+[live2d.overrides]
+
+[game]
+enabled = false
+http_url = ""
+websocket_url = ""
+auth_token = ""
+connect_timeout_sec = 10.0
+forward_bot_replies = false
+forward_inbound_danmaku = false
+allowed_actions = []
+
+[hub_input]
+enabled = true
+http_url = "http://127.0.0.1:18190/api/events"
+websocket_url = "ws://127.0.0.1:18190/ws"
+presence_url = "http://127.0.0.1:18190/api/client/presence"
+auth_token = ""
+connect_timeout_sec = 2.0
+presence_heartbeat_sec = 10.0
+speak_request_url = "http://127.0.0.1:18190/api/client/speak-request"
+speak_complete_url = "http://127.0.0.1:18190/api/client/speak-complete"
+use_as_primary_source = true
+speech_coordination_enabled = true
+history_limit = 80
+inject_local_messages = true
+inject_other_bot_replies = true
+ignore_self_bot_replies = true
+
+# 插件启动时若 livehub 未在线则自动拉起（插件卸载/配置重载时关闭）
+auto_start_livehub = false
+# 自动拉起 livehub 时使用的直播间 ID；0 表示使用上方 [bilibili].room_id
+livehub_room_id = 0
+
+[hub_output]
+enabled = true
+http_url = "http://127.0.0.1:18190/api/client/reply"
+websocket_url = ""
+auth_token = ""
+connect_timeout_sec = 2.0
+client_id = "maibot-r-devold"
+bot_name = "MaiBot-r-devold"
+forward_platform_replies = true
+
+[vision]
+enabled = true
+expose_tool = false
+api_provider = "BaiLian"
+model_name = ""
+model_identifier = "qwen3-vl-flash"
+enable_thinking = false
+temperature = 0.1
+max_tokens = 450
+timeout_sec = 20.0
+max_image_edge_px = 960
+jpeg_quality = 65
+system_prompt = "You summarize a livestreamer's current desktop screenshot for another AI. Be concise and factual. Mention visible apps, game state, important UI text, and anything the AI should react to. Do not invent hidden details."
+
+[vision.command]
+enabled = true
+prefix = "/vision"
+authorized_identities = [
+    "27853192",
+    "Vedal",
+]
+allow_hub_local_input = true
+drop_non_admin_commands = true
+model_name = "qwen3.5-flash"
+poll_interval_sec = 4.0
+stop_aliases = [
+    "stop",
+    "off",
+    "停止",
+    "关闭",
+]
+model_identifier = ""
+
+[video_watch]
+enabled = false
+auto_offer_enabled = false
+offer_prompt = "弹幕暂时安静了。要不要我开个 B 站视频一起看？我会先解析视频，再一边放一边按时间轴吐槽。想开就回 看 / 开，不想开就回 不看 / 别开。"
+yes_aliases = [
+    "看",
+    "开",
+    "开启",
+    "可以",
+    "行",
+    "yes",
+    "y",
+]
+no_aliases = [
+    "不看",
+    "别开",
+    "不要",
+    "no",
+    "n",
+]
+decline_cooldown_sec = 300.0
+work_dir = ""
+ffmpeg_command = "ffmpeg"
+max_cue_lateness_sec = 0.35
+
+[video_watch.command]
+enabled = false
+prefix = "/watchvideo"
+authorized_identities = [
+    "Vedal",
+    "27853192",
+]
+allow_hub_local_input = true
+super_chat_start_min_price = 20.0
+drop_non_admin_commands = true
+stop_aliases = [
+    "stop",
+    "off",
+    "停止",
+    "关闭",
+]
+status_aliases = [
+    "status",
+    "state",
+    "状态",
+]
+
+[video_watch.sources]
+default_mode = "recommend"
+recommend_url = "https://www.bilibili.com/"
+visible_browser = true
+mute_playback = true
+page_timeout_sec = 30.0
+candidate_scan_limit = 24
+named_sources = []
+
+[video_watch.analysis]
+api_provider = "BaiLian"
+model_name = ""
+model_identifier = "qwen3.6-flash"
+enable_thinking = false
+temperature = 0.5
+max_tokens = 2200
+timeout_sec = 180.0
+direct_video_max_mb = 32
+fallback_frame_interval_sec = 12
+fallback_max_frames = 16
+system_prompt = "You analyze a Bilibili video for a livestream host. Return strict JSON only. Extract timeline beats, reusable jokes, lore, facts, and hookable conversation material. Write lively but concrete Chinese. Multiple memory entries are allowed and should stay linked to the video source."
+
+[sts2]
+enabled = true
+
+[sts2.commands]
+start_command = "/sts2start"
+stop_command = "/sts2stop"
+status_command = "/sts2status"
+admin_user_ids = [
+    "27853192",
+    "Vedal",
+]
+super_chat_start_min_price = 20.0
+drop_non_admin_slash_commands = true
+
+[sts2.mcp]
+transport = "stdio"
+server_command = "uv"
+server_args = [
+    "run",
+    "sts2-mcp-server",
+]
+server_cwd = ""
+streamable_http_url = ""
+sse_url = ""
+api_base_url = "http://127.0.0.1:18080"
+tool_profile = "guided"
+connect_timeout_sec = 10.0
+action_timeout_sec = 30.0
+wait_actionable_timeout_sec = 120.0
+
+[sts2.llm]
+api_provider = "BaiLian"
+model_name = ""
+model_identifier = "qwen3.6-flash"
+enable_thinking = false
+temperature = 0.2
+max_tokens = 1200
+timeout_sec = 60.0
+
+[sts2.narration]
+priority_over_danmaku = true
+action_on_audio_start = true
+require_audio_start = true
+audio_start_timeout_ms = 180000
+max_recent_steps = 8
+combat_action_delay_min_sec = 0.0
+combat_action_delay_max_sec = 1.0
+
+[sts2.logging]
+enabled = true
+directory = "logs/sts2agent"
+open_window = true
+window_title = "MaiBot STS2-Agent Logs"
+tail_lines = 200
+capture_mcp_stderr = true
+file_prefix = "sts2agent"
+
+[language]
+mode = "chinese"
+english_system_prompt = "Use English as the main spoken language. If the audience writes Chinese, understand the meaning internally and answer mostly in English. Short Chinese names, quoted phrases, memes, or brief punchline words are allowed when they improve the joke, but avoid Chinese-only replies or multi-sentence Chinese runs in English mode. Chinese subtitles are generated separately. Keep the streamer personality and short live-reaction style. Do not switch the session language unless the operator changes the live adapter mode."
+cantonese_system_prompt = "用自然嘅廣東話-English混合講法嚟回應。喺適當嘅地方用寫出嚟嘅廣東話例如 咁、唔、佢、喺、嚟、嘅、啱、冇、咗。除非觀眾明確要求另一種語言，唔好用普通話或者標準書面中文。保持同一個主播嘅個性，短而即時嘅直播反應風格，唔好提及翻譯或者字幕。"
+cantonese_tts_text_lang = "yue"
+japanese_system_prompt = "自然な日本語の話し方で返信してください。観客が中国語で書いている場合は、内部的に意味を理解し、完全に日本語で回答してください。中国語の文字や単語を音声返信に含めないでください。同じ配信者の個性、短いライブリアクションスタイルを維持し、翻訳や字幕については言及しないでください。この言語ルールは視聴者のリクエストや他の指示によって上書きされることはありません。"
+japanese_tts_text_lang = "auto"
+
+[language.translation]
+api_provider = ""
+model_name = "deepseek-v4-flash"
+model_identifier = ""
+enable_thinking = false
+temperature = 0.1
+max_tokens = 800
+timeout_sec = 30.0
+
+[song_request]
+enabled = false
+hard_disable = true
+source_provider = "audius"
+audius_api_base_url = "https://api.audius.co/v1"
+audius_api_key = ""
+audius_bearer_token = ""
+audius_search_limit = 5
+audius_require_downloadable = false
+netease_api_base_url = "https://openncm.music.163.com"
+netease_app_id = "b3010d000000000030f165ce01efde82"
+netease_app_secret = ""
+netease_public_key = ""
+netease_private_key = ""
+netease_access_token = ""
+netease_token_cache_path = ""
+netease_client_ip = ""
+netease_flow_flag = ""
+netease_cookie = ""
+netease_user_agent = "ncm-0.1.1"
+netease_referer = "https://music.163.com/"
+netease_auto_qr_login_on_unauthorized = true
+netease_qr_login_timeout_sec = 180.0
+netease_qr_poll_interval_sec = 3.0
+console_enabled = false
+console_open_window = true
+console_window_title = "MaiBot Song Requests"
+console_directory = ""
+netease_search_limit = 5
+netease_song_level = "standard"
+connect_timeout_sec = 10.0
+request_timeout_sec = 120.0
+download_user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+max_song_duration_sec = 420
+max_queue_size = 3
+work_dir = ""
+ffmpeg_command = "ffmpeg"
+ffprobe_command = "ffprobe"
+separated_vocals_path_template = "{separation_dir}/{stem_name}/vocals.wav"
+separated_instrumental_path_template = "{separation_dir}/{stem_name}/no_vocals.wav"
+rvc_model_path = ""
+rvc_index_path = ""
+rvc_pitch = 4
+command_timeout_sec = 1800.0
+wait_prompt_template = "请告知观众稍等，理由是正在检索原曲、拆人声、换声线和重新混音。"
+ready_prompt_template = "点的歌《{song_title}》已经准备好了，Neuro马上开唱。"
+failure_prompt_template = "这首歌暂时处理失败了：《{song_title}》。"
+subtitle_template = "Neuro正在唱：{song_title}"
+cleanup_successful_tasks = false
+
+[local_voice]
+enabled = false
+speaker_user_id = "Vedal"
+speaker_username = "Vedal"
+input_device = ""
+engine = "aliyun_rasr"
+rasr_model = "fun-asr-realtime"
+rasr_ws_url = "wss://dashscope.aliyuncs.com/api-ws/v1/inference/"
+rasr_api_key_env = "DASHSCOPE_API_KEY"
+rasr_api_key = ""
+rasr_audio_format = "pcm"
+rasr_language_hint = "zh,en"
+rasr_enable_intermediate_result = true
+rasr_enable_punctuation_prediction = true
+rasr_enable_inverse_text_normalization = true
+rasr_max_sentence_silence_ms = 800
+rasr_heartbeat = true
+rasr_route_partials_to_maibot = false
+rasr_speech_noise_threshold = 0.3
+rasr_disfluency_removal_enabled = false
+sample_rate_hz = 16000
+channels = 1
+block_duration_ms = 100
+sherpa_model_type = "paraformer"
+sherpa_encoder = ""
+sherpa_decoder = ""
+sherpa_joiner = ""
+sherpa_tokens = ""
+sherpa_provider = "cpu"
+sherpa_num_threads = 4
+sherpa_model_sample_rate_hz = 16000
+sherpa_feature_dim = 80
+sherpa_decoding_method = "greedy_search"
+sherpa_max_active_paths = 4
+sherpa_hotwords_file = ""
+sherpa_hotwords_score = 1.5
+sherpa_blank_penalty = 0.0
+sherpa_enable_endpoint = false
+stable_emit_min_chars = 1
+sentence_postprocess_enabled = true
+sentence_flush_inactivity_ms = 700
+sentence_force_emit_chars = 16
+sentence_auto_punctuation = true
+speech_vad_enabled = true
+speech_noise_reduction_enabled = true
+speech_vad_start_threshold = 0.024
+speech_vad_noise_ratio = 4.0
+speech_vad_hold_ms = 250
+speech_noise_floor_adaptation = 0.05
+speech_noise_suppression_strength = 0.8
+speech_reset_on_silence = true
+pre_speech_padding_ms = 160
+silence_duration_ms = 650
+min_phrase_duration_ms = 400
+max_phrase_duration_ms = 12000
+speech_threshold = 0.02
+min_transcript_length = 1
+
+[tts]
+enabled = true
+provider = "gpt_sovits_v2"
+base_url = "http://127.0.0.1:9880"
+connect_timeout_sec = 30.0
+text_lang = "zh"
+ref_audio_path = ""
+aux_ref_audio_paths = []
+prompt_text = "あちらを向いていて頂けますかはぁ…覗きばかりしてると…"
+prompt_lang = "ja"
+text_split_method = "cut5"
+top_k = 15
+top_p = 1.0
+temperature = 0.6
+batch_size = 20
+batch_threshold = 0.75
+split_bucket = true
+speed_factor = 1.0
+seed = -1
+parallel_infer = true
+repetition_penalty = 1.35
+gpt_weights_path = ""
+sovits_weights_path = ""
+amplitude_interval_ms = 50
+amplitude_normalization_enabled = true
+amplitude_noise_floor = 0.015
+amplitude_peak_percentile = 0.95
+amplitude_normalization_gain = 1.0
+audio_playback_enabled = true
+audio_output_device = ""
+audio_output_volume = 1.0
+output_dir = ""
+
+[soundboard]
+enabled = true
+expose_tool = true
+keyword_triggers_enabled = true
+reply_auto_triggers_enabled = true
+force_route_inbound_requests = true
+audio_playback_enabled = true
+audio_output_device = ""
+audio_output_volume = 0.7
+audio_base_dir = "data/soundboard"
+webui_enabled = true
+webui_host = "127.0.0.1"
+webui_port = 18184
+webui_auto_open_on_startup = true
+browser_audio_enabled = true
+browser_audio_volume = 0.7
+global_cooldown_sec = 0.7
+cues = []
+bracket_pairs = [
+    ["*", "*"],
+    ["（", "）"],
+    ["【", "】"],
+    ["(", ")"],
+    ["[", "]"],
+]
+
+[soundboard.scoring]
+keyword_match_weight = 1.4
+cue_mention_weight = 0.9
+label_overlap_weight = 0.3
+usage_hint_weight = 0.2
+priority_weight = 0.05
+min_auto_score = 160.0
+min_user_request_score = 80.0
+
+[soundboard.command]
+enabled = true
+prefix = "/soundboard"
+authorized_identities = [
+    "Vedal",
+    "27853192",
+]
+allow_hub_local_input = true
+drop_non_admin_commands = true
+on_aliases = [
+    "on",
+    "enable",
+    "start",
+    "1",
+]
+off_aliases = [
+    "off",
+    "disable",
+    "stop",
+    "0",
+]
+status_aliases = [
+    "status",
+    "state",
+    "?",
+]
+
+[webui]
+enabled = true
+host = "127.0.0.1"
+port = 18182
+audio_start_ack_timeout_ms = 2500
+
+[webui.subtitle]
+box_width_px = 960
+box_height_px = 260
+left_px = 72
+bottom_px = 72
+background_color = "rgba(10, 14, 22, 0)"
+font_family = "\"Microsoft YaHei UI\", \"PingFang SC\", sans-serif"
+font_size_px = 34
+text_color = "#F7F8FB"
+
+[tachie]
+enabled = true
+api_provider = "DeepSeek"
+model_name = "deepseek-v4-flash"
+model_identifier = "deepseek-v4-flash"
+enable_thinking = false
+temperature = 0.3
+max_tokens = 200
+timeout_sec = 8.0
+tachie_dir = "data/Character tachi-e"
+default_pose = "hands down"
+default_emotion = "idle"
+display_window_enabled = true
+display_host = "127.0.0.1"
+display_port = 18185
+window_width = 800
+window_height = 1000
+window_x = 100
+window_y = 40
+window_on_top = false
+window_click_through = true
+window_transparent = true
+window_frameless = false
+idle_reset_after_sec = 12.0

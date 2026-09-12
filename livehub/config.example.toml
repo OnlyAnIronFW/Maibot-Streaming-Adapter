@@ -1,0 +1,28 @@
+# livehub 服务端配置
+# 插件侧 hub_input / hub_output 默认指向 http://127.0.0.1:18190，如修改端口需同步修改插件配置。
+
+host = "127.0.0.1"
+port = 18190
+
+# 可选认证令牌；配置后插件侧 hub_input.auth_token 需保持一致
+auth_token = ""
+
+# B 站直播间 ID（必填，例如 22637261）
+room_id = 4538234
+
+# 事件历史窗口：客户端 GET /api/events 与 WS snapshot 最多返回的事件条数
+history_limit = 200
+
+# 参与者（bot）presence 心跳超时秒数，超过后视为离线
+presence_timeout_sec = 60.0
+
+# 语音互斥：当前说话者超时释放的额外宽限秒数
+speech_timeout_grace_sec = 15.0
+
+# B 站采集
+reconnect_delay_sec = 5.0
+heartbeat_interval_sec = 30.0
+parallel_ws_connections = 3
+connect_timeout_sec = 10.0
+
+log_level = "INFO"
